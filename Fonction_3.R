@@ -68,7 +68,7 @@ dynamique <- function(param,dilution=NULL,t=NULL,tmax=100){
         
         dT=df(a, par)*omega*deriv[n]+sum(beta*deriv[-c(1,n-(1:0))])
         dc_2=dT*s+(xi+T)*deriv[1]-eta*deriv[2]-theta*deriv[n-2]-muc*dc
-        return(c(dc, dc_2))
+        return(c(dc, dc_2, sum(vc)/sum(var)-fr_seuil))
       })
   }
   
@@ -101,7 +101,7 @@ dynamique <- function(param,dilution=NULL,t=NULL,tmax=100){
     #Récupération du point d'inflexion, du max
     valeurs <- c(NA,NA)
     derive <- NA
-    v.res <- c(NA,NA,NA,NA,NA)
+    v.res <- c(NA,NA,NA,NA,NA,NA)
     
     #posinfl : position du point d'inflexion
     #posmax : position du maximum
@@ -122,12 +122,16 @@ dynamique <- function(param,dilution=NULL,t=NULL,tmax=100){
       derive <- (lambda+param$xi)*attributes(out)$valroot[1,posinfl]-param$eta*attributes(out)$valroot[2,posinfl]-param$theta*attributes(out)$valroot[nbclass+1,posinfl]-param$muc*valeurs[1]
       v.res[1:3] <-c(attributes(out)$troot[posinfl],valeurs[1],derive)
     }
-  
+    posseuil <- which(attributes(out)$indroot==3)
+    posseuil <- posseuil[1]
+    if(!is.na(posseuil)) {
+      v.res[6]<-attributes(out)$troot[posseuil]
+    }
     if (length(v.res)<5){
       warning("Inflection point not found, try increasing tmax")
     }
     else{
-      names(v.res)<- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max")
+      names(v.res)<- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", "t0.seuil")
       v.res[paste("t0", param$k, sep="_")] <- with(as.list(v.res),t.infl+(c.infl/dc.infl)*(log(param$k*param$xi)-log(c.infl)))
       v.res["dilution"]<- dilution[i]
       res <- rbind(res,v.res) 
@@ -143,31 +147,55 @@ dynamique <- function(param,dilution=NULL,t=NULL,tmax=100){
 }
 
 #Moyenne géométrique
-beta_i <- function(beta_bar,e,i) (1:i)^e*beta_bar/factorial(i)^(e/i)
+beta_i <- function(beta_bar,n){
+  e=n+1
+  b <- factorial(n-1)*prod(e-2:n)
+  b <- beta_bar/b^(1.0/(n-1))
+  bi <- b*(2:n-1)*(e-2:n)
+  return(bi)
+} 
 
 beta_i_bell <- function(beta_bar,e,i) beta_bar*exp(-((1:i)-ceiling(i/2))^2/(2*e^2))
 
 #Minimisation
-find.omega.b <- function(parameters, out, k=1000){
+find.omega.b <- function(parameters, out){
   p <- parameters
   dilution.obj <- out$dilution[1]
-  slope.obj <- out$dc.infl[1]
-  t0.obj <- out[1,paste0("t0_", k)]
+  slope.obj <-  out$dc.infl[1]/out$c.infl[1]
+  t0.obj <-  out$t0.seuil[1]
   f <-function(x){
     p$beta <- rep(0, length(p$beta))
     p$omega <- x[1]
     p$b <- x[2]
     out2 <- dynamique(p, dilution=dilution.obj)
-    slope <- out2$dc.infl
-    t0 <- out2[1,paste0("t0_", k)]
+    slope <-  out2$dc.infl/out2$c.infl
+    t0 <- out2$t0.seuil
     return(sqrt((t0-t0.obj)^2+(slope -slope.obj)^2))
   }
-  res <- nlm(f, c(30,2))
+  res <- nlm(f, c(205,2.72))
+  return(res)
+}
+
+#Minimisation
+find.omega <- function(parameters, out){
+  p <- parameters
+  dilution.obj <- out$dilution[1]
+  slope.obj <- out$dc.infl[1]/out$c.infl[1]
+  t0.obj <- out$t0.seuil[1]
+  f <-function(x){
+    p$beta <- rep(0, length(p$beta))
+    p$omega <- 10^(x[1])
+    out2 <- dynamique(p, dilution=dilution.obj)
+    slope <- out2$dc.infl/out2$c.infl
+    t0 <- out2$t0.seuil
+    return(sqrt((t0-t0.obj)^2+(slope -slope.obj)^2))
+  }
+  res <- optimize(f, lower=-6, upper=6)
   return(res)
 }
 
 #Affichage de la dynamique
-graph.dyn <- function(dyn, which=NULL, k=1000){
+graph.dyn <- function(dyn, which=NULL){
   out <- attr(dyn,"dynamique")
   
   #Affiche uniquement si la dynamique est trouvée
@@ -191,7 +219,7 @@ graph.dyn <- function(dyn, which=NULL, k=1000){
     for (i in 1:nbclass)
       lines(out[,1],out[,i+2], col=2)
     #Affichage du point d'inflexion, de sa tangente et du max
-    abline(v=dyn[c("t.infl","t.max",paste("t0", k, sep="_"))])
+    abline(v=dyn[c("t.infl","t.max","t0.seuil")])
     abline(h=dyn[c("c.infl","c.max")])
     lines(out[,1], with(as.list(dyn),c.infl*exp((dc.infl/c.infl)*(out[,1]-t.infl))), lty=3, col="purple")
   }
@@ -252,7 +280,7 @@ graphs <- function(dyn, which=NULL){
 }
 
 #Points d'intérêts
-pointsint <- function(dyn, which=NULL, k=1000){
+pointsint <- function(dyn, which=NULL, seuil=1E-4){
   out <- attr(dyn,"dynamique")
   
   #Affiche uniquement si la dynamique est trouvée
@@ -287,10 +315,10 @@ pointsint <- function(dyn, which=NULL, k=1000){
     }
     #t0 et tangente
     if (which >=3){
-      abline(v=dyn[c("t.infl","t.max",paste("t0", k, sep="_"))], col="purple")
+      abline(v=dyn[c("t.infl","t.max","t0.seuil")], col="purple")
       lines(out[,1], with(as.list(dyn),c.infl*exp((dc.infl/c.infl)*(out[,1]-t.infl))), lty=3, col="red")
-      points(x=dyn[c(paste("t0", k, sep="_"))], y=1E-2, col="purple", pch=16)
-      text(x=(dyn[c(paste("t0", k, sep="_"))]+1), y=1E-2, labels="t0", col="purple")
+      points(x=dyn["t0.seuil"], y=seuil, col="purple", pch=16)
+      text(x=(dyn["t0.seuil"]+1), y=seuil, labels="t0", col="purple")
       nom <- c(nom, "slope", "t0")
       couleur <- c(couleur, "red", "purple")
       type <- c(rep(1,3), 3, 1)

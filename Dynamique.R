@@ -16,7 +16,7 @@ parameters <- list(mus=0.1,
                    eta=0,
                    theta=0.1,
                    phi=0.1,
-                   lambda=1,
+                   lambda=0.5,
                    #Répétition de la valeur de alpha, tout les alphas ont la même valeur
                    alpha=c(0.01, rep(0.6, nbclass)),
                    omega=0,
@@ -24,115 +24,132 @@ parameters <- list(mus=0.1,
                    a_s=1,
                    #Idem que pour alpha
                    beta=c(0, rep(0, nbclass-1)),
-                   e=2,
-                   beta_bar=20)
+                   e=3,
+                   beta_bar=20,
+                   fr_seuil=1E-6)
 
 
 #parameters$beta[2:nbclass] <- beta_i(parameters$beta_bar,parameters$e,nbclass-1)
-#parameters$beta[2:nbclass] <- beta_i_bell(parameters$beta_bar,parameters$e,nbclass-1)
+
 
 res <- NULL
 p <- parameters
 
 
-param2 <- read.table(file="parameters_omega_b_lambda_1_5.csv", header=TRUE)
-# #Variations d'un paramètre
-for (i in 1:5){
-  p$lambda <- i
-  p$omega <- param2[i,1]
-  p$b <- param2[i,2]
-  out <- dynamique(p, dilution=c(1, 10, 50, 100, 500, 1500, 3000))
-  out$omega <- param2[i,1]
-  out$b <- param2[i,2]
-  out$lambda <- i
-  res <- rbind (res,out)
-}
-
-# p$omega <- param2[1,1]
-# p$b <- param2[1,2]
-# for (i in 1:5){
-#   p$lambda <- i
+param2 <- read.table(file="parameters_omega_b_seuil-6.csv", header=TRUE)
+#Variations d'un paramètre
+# for (i in 1:11){
+#   p$omega <- param2[i,1]
+#   p$b <- param2[i,2]
 #   out <- dynamique(p, dilution=c(1, 10, 50, 100, 500, 1500, 3000))
-#   out$lambda <- i
+#   out$omega <- param2[i,1]
+#   out$b <- param2[i,2]
 #   res <- rbind (res,out)
 # }
 
 
-#write.table(res, file="sim_omegavar_lambda_1_5.csv",row.names = FALSE)
-#res <- read.table(file="sim_omega_5_15_b2_as1_alpha0.6.csv", header=TRUE)
+for (i in 2:15){
+  nbclass <- i
+  p$e <- nbclass-1
+  p$beta <- rep(0, nbclass)
+  p$alpha <- rep(0, nbclass+1)
+  p$beta[2:nbclass]<- beta_i(p$beta_bar,p$e,nbclass-1)
+  out <- dynamique(p, dilution=c(1, 10, 50, 100, 500, 1500, 3000))
+  out$nbclass <- i
+  out$beta <- p$beta[2]
+  res <- rbind (res,out)
+}
 
-#pdf(file="sim_t0_omega_lambda_1_5.pdf",width=4,height = 4)
+# for (i in 1:10){
+#   p$beta[2:nbclass] <- i
+#   out <- dynamique(p, dilution=c(1, 10, 50, 100, 500, 1500, 3000))
+#   out$beta <- i
+#   res <- rbind (res,out)
+# }
+
+#write.table(res, file="sim_beta_1_10_seuil-6.csv",row.names = FALSE)
+res <- read.table(file="sim_beta_20_30_seuil-6.csv", header=TRUE)
+
+
+#pdf(file="sim_t0_beta_20_30.pdf",width=4,height = 4)
 #plot de différents t0
-plot(t0_1000~dilution, data=res, log="x", type="n")
-lgd_ = rep(NA, 5)
-lgd_[c(1,5)] = c(1,5)
+plot(t0.seuil~dilution, data=res, log="x", type="n", ylab="t0")
+lgd_ = rep(NA, 10)
+lgd_[c(1,10)] = c(20,30)
 legend("topleft", inset=0.01,legend = lgd_,
-       fill = colorRampPalette(colors = c('black','grey96'))(5),
+       fill = colorRampPalette(colors = c('black','grey96'))(10),
        border = NA,
        y.intersp = 0.5, cex=0.75)
-lapply(split(res,res$lambda),function(dtmp) lines(t0_1000~dilution, data=dtmp, type="b",
-                                                pch=21, cex=2, bg=grey(lambda/i)))
+lapply(split(res,res$beta),function(dtmp) lines(t0.seuil~dilution, data=dtmp, type="b",
+                                                pch=21, cex=2, bg=grey(beta/i)))
 
 #dev.off()
+
  
-#pdf(file="sim_dc_beta_omega_1_5.pdf",width=4,height = 4)
+#pdf(file="sim_dc_beta_20_30.pdf",width=4,height = 4)
 #plot de différents dc
-plot(dc.infl~dilution, data=res, log="x", type="n", ylab="slope")
-lgd_ = rep(NA, 5)
-lgd_[c(1,5)] = c(1,5)
-legend("topright" ,legend = lgd_,
-       fill = colorRampPalette(colors = c('black','grey96'))(5),
+plot(I(dc.infl/c.infl)~dilution, data=res, log="x", type="n", ylab="slope")
+lgd_ = rep(NA, 10)
+lgd_[c(1,10)] = c(20,30)
+legend("topright", inset=0.01,legend = lgd_,
+       fill = colorRampPalette(colors = c('black','grey96'))(10),
        border = NA,
-       y.intersp = 0.5, cex=0.75)
-lapply(split(res,res$lambda),function(dtmp) lines(dc.infl~dilution, data=dtmp, type="b",
-                                                 pch=21, cex=2, bg=grey(lambda/i)))
+       y.intersp = 0.5, cex=0.5)
+lapply(split(res,res$beta),function(dtmp) lines(I(dc.infl/c.infl)~dilution, data=dtmp, type="b",
+                                                 pch=21, cex=2, bg=grey(beta/i)))
 #dev.off()
 
 #Graph : t0 en fonction de la pente
-#pdf(file="sim_t0slope_beta_omega_1_5.pdf",width=4,height = 4)
-plot(t0_1000~dc.infl, data=res, xlab="slope", ylab="t0", type="n")
-lgd_ = rep(NA, 5)
-lgd_[c(1,5)] = c(1,5)
-legend("topright" ,legend = lgd_,
-       fill = colorRampPalette(colors = c('black','grey96'))(5),
-       border = NA,
-       y.intersp = 0.5, cex=0.75)
-lapply(split(res,res$lambda),function(dtmp) lines(t0_1000~dc.infl, data=dtmp, type="b",
-                                                 pch=21, cex=2, bg=grey(lambda/i)))
+#pdf(file="sim_t0slope_beta_20_30_seuil-6.pdf",width=8,height = 6)
+plot(t0.seuil~I(dc.infl/c.infl), data=res, xlab="slope", ylab="t0", type="n")
+# lgd_ = rep(NA, 10)
+# lgd_[c(1,10)] = c(20,30)
+# legend("topright", inset=0.01,legend = lgd_,
+#        fill = colorRampPalette(colors = c('black','grey96'))(10),
+#        border = NA,
+#        y.intersp = 0.5, cex=0.75)
+lapply(split(res,res$beta),function(dtmp) lines(t0.seuil~I(dc.infl/c.infl), data=dtmp, type="b",
+                                                 pch=21, cex=2, bg=grey(beta/30)))
 #dev.off()
 
-omegares <- read.table(file="sim_omegavar_lambda_1_5.csv", header=TRUE)
-betares <- read.table(file="sim_beta_lambda_1_5.csv", header=TRUE)
+omegares <- read.table(file="sim_samebetaomega_seuil-6.csv", header=TRUE)
+betares <- read.table(file="sim_beta_20_30_seuil-6.csv", header=TRUE)
 # #Plot avec beta et omega dessus
-# pdf(file="sim_omegabeta_t0_slope_lambda1_5_omegavar.pdf",width=8,height = 6)
-plot(t0_1000~dc.infl, data=betares, xlab="slope", ylab="t0", type="n", xlim=c(0.59,1.16), ylim=c(1.32,11.3))
- lgd_ = rep(NA, 5)
- lgd_[c(1,3,5)] = c(1,"lambda",5)
+#* pdf(file="sim_omegabeta_seuil-6.pdf",width=8,height = 6)
+plot(t0.seuil~I(dc.infl/c.infl), data=betares, xlab="slope", ylab="t0", type="n")
+ # lgd_ = rep(NA, 5)
+ # lgd_[c(1,3,5)] = c(1,"lambda",5)
 # space=rep(NA, 2)
 # lgd_2 = rep(NA, 10)
 # lgd_2[c(1,5,10)] = c(1,"beta",10)
-legend("right" ,legend = c(lgd_),#, space, lgd_2),
-       fill = c(colorRampPalette(colors = c('black','grey96'))(5)),#, "white", "white",colorRampPalette(colors = c('black','grey96'))(10)),
-       border = NA,
-       y.intersp = 0.5, cex=0.7)
-legend("topright", legend=c("omega","beta"), pch=c(21,25), cex=0.8)
-lapply(split(omegares,omegares$lambda),function(dtmp) lines(t0_1000~dc.infl, data=dtmp, type="b",
-                                                           pch=21, cex=2, bg=grey(lambda/5)))
-lapply(split(betares,betares$lambda),function(dtmp) lines(t0_1000~dc.infl, data=dtmp, type="b",
-                                                        pch=25, cex=2, bg=grey(lambda/5)))
-# dev.off()
+# legend("right" ,legend = c(lgd_),#, space, lgd_2),
+#        fill = c(colorRampPalette(colors = c('black','grey96'))(5)),#, "white", "white",colorRampPalette(colors = c('black','grey96'))(10)),
+#        border = NA,
+#        y.intersp = 0.5, cex=0.7)
+legend("bottomleft", legend=c("omega","beta"), pch=c(21,25), cex=0.6)
+lapply(split(omegares,omegares$omega),function(dtmp) lines(t0.seuil~I(dc.infl/c.infl), data=dtmp, type="b",
+                                                           pch=21, cex=2, bg=grey(omega/276)))
+lapply(split(betares,betares$beta),function(dtmp) lines(t0.seuil~I(dc.infl/c.infl), data=dtmp, type="b",
+                                                        pch=25, cex=2, bg=grey(beta/30)))
+#* dev.off()
 
 
- out <- dynamique(parameters, dilution=3000, t=temps)
+ out <- dynamique(parameters, t=temps)
 # #Affiche un graphique s'il y a aucune ou 1 dillution
  graph.dyn(out, which=4)
 
+ 
+dtmp <- attr(out, "dynamique")
+dtmp$c <- with(dtmp, c1+c2+c3+c4+c5)
+dtmp$pr <- with(dtmp, c/(s+c+p))
+plot(pr~time, data=dtmp, log="xy")
+
 
 #Trouver omega pour beta donné
-res <- read.table(file="sim_beta_lambda_1_5.csv", header=TRUE)
-res <- split(res,res$lambda)
-out <- as.data.frame(res[5])
-colnames(out) <- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", paste0("t0_", parameters$k), "dilution", "lambda")
+res <- read.table(file="sim_beta_20_30_seuil-6.csv", header=TRUE)
+res <- split(res,res$beta)
+out <- as.data.frame(res[7])
+colnames(out) <- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", "t0.seuil", paste0("t0_", parameters$k), "dilution", "beta")
 
 min.omega.b <- find.omega.b(parameters, out)
 parameters_2 <- parameters
@@ -141,14 +158,14 @@ parameters_2$b <- min.omega.b$estimate[2]
 parameters_2$beta <- rep(0, length(parameters$beta))
 out2 <- dynamique(parameters_2, t=temps)
 
+param2[7,1] <- min.omega.b$estimate[1]
 
-res <- read.table(file="sim_beta_lambda_1_5.csv", header=TRUE)
-res <- split(res,res$lambda)
+res <- read.table(file="sim_beta_20_30_seuil-6.csv", header=TRUE)
+res <- split(res,res$beta)
 omega.b <- NULL
-for (i in 1:5){
-  parameters$lambda <- i
+for (i in 1:11){
   out <- as.data.frame(res[i])
-  colnames(out) <- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", paste0("t0_", parameters$k), "dilution", "lambda")
+  colnames(out) <- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", "t0.seuil", paste0("t0_", parameters$k), "dilution", "beta")
   min.omega.b <- find.omega.b(parameters, out)
   newpara <- c(min.omega.b$estimate[1], min.omega.b$estimate[2])
   omega.b <- rbind(omega.b, newpara)
@@ -187,17 +204,17 @@ colnames(omega.b) <- c("omega", "b")
 # legend("topleft", legend=c("e=1.5, n=10","e=1.5, n=5", "e=0.5, n=10", "e=0.5, n=5"), col=c("red", "orange", "blue", "cyan"), pch=16)
 
 # #Plot beta en cloche
-# beta_2 <- rep(0,10)
-# beta_2[2:10] <- beta_i_bell(20,2,9)
-# plot(x=c(1:10), y=beta_2, xlab="i", ylab="Beta_i", col="red", pch=16)
-# beta_2[2:10] <- beta_i_bell(20,5,9)
-# points(x=c(1:10), y=beta_2, col="orange", pch=16)
-# beta_2 <- rep(0,5)
-# beta_2[2:5] <- beta_i_bell(20,2,4)
-# points(x=c(1:5), y=beta_2, col="blue", pch=16)
-# beta_2[2:5] <- beta_i_bell(20,5,4)
-# points(x=c(1:5), y=beta_2, col="cyan", pch=16)
-# legend("bottom", legend=c("e=2, n=10","e=5, n=10", "e=2, n=5", "e=5, n=5"), col=c("red", "orange", "blue", "cyan"), pch=16)
+beta_2 <- rep(0,10)
+beta_2 <- beta_i(20,10)
+plot(x=c(2:10), y=beta_2,xlab="i", ylab="Beta_i", col="red", pch=16, type="b", ylim=c(0,30))
+beta_2 <- beta_i(10,10)
+points(x=c(2:10), y=beta_2, col="orange", pch=16, type="b")
+beta_2 <- rep(0,5)
+beta_2 <- beta_i(20,5)
+points(x=2:5, y=beta_2, col="blue", pch=16, type="b")
+beta_2 <- beta_i(10,5)
+points(x=c(2:5), y=beta_2, col="cyan", pch=16, type="b")
+legend("bottomright", legend=c("e=8, n=10","e=10, n=10", "e=3, n=5", "e=5, n=5"), col=c("red", "orange", "blue", "cyan"), pch=16)
 
 # #Beta pour différentes valeurs de e, beta_bar, et n, stocké dans une table
 # for (e in c(2,5,8)){
@@ -308,6 +325,17 @@ colnames(omega.b) <- c("omega", "b")
 #                                                         pch=25, cex=2, bg=grey(beta/15)))
 # # dev.off()
 
+# res <- split(res, res$seuil)
+# layout(matrix(1:6, ncol=3))
+# for (i in 1:6){
+#   out <- as.data.frame(res[i])
+#   colnames(out) <- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", "t0.seuil", paste0("t0_", parameters$k), "dilution", "omega", "seuil")
+#   plot(t0.seuil~dilution, data=out, log="x", type="n", ylab="t0")
+#   legend("bottomright", legend=out$seuil[1])
+#   lapply(split(out,out$omega),function(dtmp) lines(t0.seuil~dilution, data=dtmp, type="b",
+#                                                    pch=(21), cex=2, bg=grey(omega/11)))
+# }
+
 
 #write.table(res, file="sim_beta_10_20.csv",row.names = FALSE)
 #write.table(res, file="sim_beta_5_15.csv",row.names = FALSE)
@@ -317,21 +345,29 @@ colnames(omega.b) <- c("omega", "b")
 #write.table(res, file="sim_omega_5_15_b1.1_as1_alpha0.6.csv",row.names = FALSE)
 #write.table(res, file="sim_omega_5_15_b2_as1_alpha0.6.csv",row.names = FALSE)
 
-#write.table(omega.b, file="parameters_omega_b",row.names = FALSE)
+#write.table(omega.b, file="parameters_omega_b.csv",row.names = FALSE)
 #write.table(omega.b, file="parameters_omega_as.csv",row.names = FALSE)
-#write.table(param2, file="parameters_omega_b_bell.csv",row.names = FALSE)
+#write.table(omega.b, file="parameters_omega_b_bell.csv",row.names = FALSE)
 #write.table(omega.b, file="parameters_omega_b_beta2030.csv",row.names = FALSE)
 #write.table(omega.b, file="parameters_omega_b_lambda_1_5.csv",row.names = FALSE)
 #write.table(res, file="sim_omega_b_samebeta.csv",row.names = FALSE)
+#write.table(res, file="sim_omega_b_samebeta_2030.csv",row.names = FALSE)
 #write.table(res, file="sim_omega_as_samebeta.csv",row.names = FALSE)
-#write.table(res, file="sim_omega_b_samebetabell.csv",row.names = FALSE)
-#write.table(res, file="sim_beta_bell_betabar_20_e_2.csv",row.names = FALSE)
+#*write.table(res, file="sim_omega_b_samebetabell.csv",row.names = FALSE)
+#write.table(res, file="sim_beta_bell_betabar_20_e_3.csv",row.names = FALSE)
 
 #write.table(res, file="sim_beta_lambda_1_5.csv",row.names = FALSE)
 #write.table(res, file="sim_omega_lambda_1_5.csv",row.names = FALSE)
 #write.table(res, file="sim_omega_b_samebeta_lambda.csv",row.names = FALSE)
 
+#write.table(res, file="sim_omega_seuil_6_1.csv",row.names = FALSE)
+#write.table(res, file="sim_beta_seuil_6_1.csv",row.names = FALSE)
 
+#write.table(res, file="sim_omega_5_15_seuil-6.csv",row.names = FALSE)
+#write.table(res, file="sim_beta_20_30_seuil-6.csv",row.names = FALSE)
+#write.table(res, file="sim_beta_5_15_seuil-6.csv",row.names = FALSE)
+#write.table(res, file="sim_samebetaomega_seuil-6.csv",row.names = FALSE)
+#write.table(param2, file="parameters_omega_b_seuil-6.csv",row.names = FALSE)
 
 
 
