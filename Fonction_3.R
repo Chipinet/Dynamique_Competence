@@ -271,7 +271,7 @@ graphs <- function(dyn, which=NULL){
 
 
 #Points d'intérêts uniquement 
-pointsint <- function(dyn, which=NULL){
+pointsint <- function(dyn, which=NULL, seuil=1E-3){
   out <- attr(dyn,"dynamique")
   
   #Affiche uniquement si la dynamique est trouvée
@@ -306,7 +306,7 @@ pointsint <- function(dyn, which=NULL){
     }
     #t0 et tangente
     if (which >=3){
-      abline(v=dyn[c("t.infl","t.max","t0.seuil")], col="purple")
+      abline(v=dyn[c("t0.seuil")], col="purple")
       lines(out[,1], with(as.list(dyn),c.infl*exp((dc.infl/c.infl)*(out[,1]-t.infl))), lty=3, col="red")
       points(x=dyn["t0.seuil"], y=seuil, col="purple", pch=16)
       text(x=(dyn["t0.seuil"]+1), y=seuil, labels="t0", col="purple")
