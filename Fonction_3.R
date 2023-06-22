@@ -108,20 +108,24 @@ dynamique <- function(param,dilution=NULL,t=NULL,tmax=100){
     posmax <- which(attributes(out)$indroot==1)
     posmax <- posmax[1]
     posinfl <- NA
+    #Si le maximum existe, prend sa valeur en x et y
     if (!is.na(posmax)) {
       valeurs[2]<-sum(c(attributes(out)$valroot[1:nbclass+1,posmax]))
       v.res[4:5] <- c(attributes(out)$troot[posmax],valeurs[2])
+      #Prend le point d'inflection avant le max s'il existe
       if (length(attributes(out)$indroot[posmax-1])>0){
         if(attributes(out)$indroot[posmax-1]==2) posinfl <- posmax-1
       }
     }
+    #Si le point d'inflection existe, prend sa valeur en x et y, calcule sa dérivé
     if (!is.na(posinfl)){
       valeurs[1]<-sum(c(attributes(out)$valroot[1:nbclass+1,posinfl]))
-      #Calcul de la dérivé au point d'inflexion
-      lambda <- param$omega*f(attributes(out)$valroot[nbclass+3,posinfl], param)+sum(param$beta*c(attributes(out)$valroot[1:nbclass+1,posinfl]))
-      derive <- (lambda+param$xi)*attributes(out)$valroot[1,posinfl]-param$eta*attributes(out)$valroot[2,posinfl]-param$theta*attributes(out)$valroot[nbclass+1,posinfl]-param$muc*valeurs[1]
+      #Calcul de la dérivée au point d'inflexion
+      T <- param$omega*f(attributes(out)$valroot[nbclass+3,posinfl], param)+sum(param$beta*c(attributes(out)$valroot[1:nbclass+1,posinfl]))
+      derive <- (T+param$xi)*attributes(out)$valroot[1,posinfl]-param$eta*attributes(out)$valroot[2,posinfl]-param$theta*attributes(out)$valroot[nbclass+1,posinfl]-param$muc*valeurs[1]
       v.res[1:3] <-c(attributes(out)$troot[posinfl],valeurs[1],derive)
     }
+    #Récupère le t0
     posseuil <- which(attributes(out)$indroot==3)
     posseuil <- posseuil[1]
     if(!is.na(posseuil)) {
@@ -146,7 +150,7 @@ dynamique <- function(param,dilution=NULL,t=NULL,tmax=100){
   return(res)
 }
 
-#Moyenne géométrique
+#Variation de beta en cloche
 beta_i <- function(beta_bar,n){
   e=n+1
   b <- factorial(n-1)*prod(e-2:n)
@@ -155,9 +159,8 @@ beta_i <- function(beta_bar,n){
   return(bi)
 } 
 
-beta_i_bell <- function(beta_bar,e,i) beta_bar*exp(-((1:i)-ceiling(i/2))^2/(2*e^2))
 
-#Minimisation
+#Minimisation pour omega et b
 find.omega.b <- function(parameters, out){
   p <- parameters
   dilution.obj <- out$dilution[1]
@@ -172,11 +175,11 @@ find.omega.b <- function(parameters, out){
     t0 <- out2$t0.seuil
     return(sqrt((t0-t0.obj)^2+(slope -slope.obj)^2))
   }
-  res <- nlm(f, c(205,2.72))
+  res <- nlm(f, c(30,2))
   return(res)
 }
 
-#Minimisation
+#Minimisation pour omega uniquement
 find.omega <- function(parameters, out){
   p <- parameters
   dilution.obj <- out$dilution[1]
@@ -236,51 +239,39 @@ graphs <- function(dyn, which=NULL){
   }
   nbclass=ncol(out)-4
   
-  #1 à 4 permet de choisir quel graphique est affiché
-  if (is.null(which)) which <- -1
-  #Graphique (entre 0 et 1 pour toutes les variables sauf a)
-  if (which<0) layout(matrix(1:4, ncol=2))
-  if (which<0 | which==1) plot(out[,1],out[,2], xlab="Time", ylab="", type="l", main="s", ylim=c(0,1))
-  if (which<0 | which==2) plot(out[,1],out[,nbclass+3], xlab="Time", ylab="", type="l", main="p", ylim=c(0,1))
-  if (which<0 | which==3) plot(out[,1],out[,nbclass+4], xlab="Time", ylab="", type="l", main="a")
   
   #Affiche de la somme des c
-  if (which<0 | which>=4){
-    ctot <- apply(as.matrix(out[,-c(1:2, ncol(out)-(1:0))]),1,sum)
-    plot(out[,1], ctot, xlab="Time", ylab="", type="l", ylim=c(0,1))
-    nom=c("c1 through c5", "ctotal")
-    couleur=c("red", "black")
-    for (i in 1:nbclass)
-      lines(out[,1],out[,i+2], col=2)
-    #Affichage de s
-    if (which >=5){
-      lines(out[,1],out[,2], col="blue")
-      nom=c(nom, "s")
-      couleur=c(couleur,"blue")
-    }
-    #Affichage de p
-    if (which >=6){
-      lines(out[,1],out[,nbclass+3], col="green")
-      nom=c(nom, "p")
-      couleur=c(couleur,"green")
-    }
-    #Affichage de a
-    if (which >=7){
-      lines(out[,1],out[,nbclass+4], col="purple")
-      nom=c(nom, "a")
-      couleur=c(couleur,"purple")
-    }
-    legend("topright", legend=nom, col=couleur,lty=1, box.lty=0)
-    #Affichage du point d'inflexion, de sa tangente et du max
-    # abline(v=dyn[c("t.infl","t.max","t0")])
-    # abline(h=dyn[c("c.infl","c.max")])
-    # abline(a = with(as.list(dyn),c.infl-t.infl*dc.infl), b=dyn["dc.infl"], lty=3, col="purple")
+  ctot <- apply(as.matrix(out[,-c(1:2, ncol(out)-(1:0))]),1,sum)
+  plot(out[,1], ctot, xlab="Time", ylab="", type="l", ylim=c(0,1))
+  nom=c("c1 through c5", "ctotal")
+  couleur=c("red", "black")
+  for (i in 1:nbclass)
+    lines(out[,1],out[,i+2], col=2)
+  #Affichage de s
+  if (which >=1){
+    lines(out[,1],out[,2], col="blue")
+    nom=c(nom, "s")
+    couleur=c(couleur,"blue")
   }
-  
+  #Affichage de p
+  if (which >=2){
+    lines(out[,1],out[,nbclass+3], col="green")
+    nom=c(nom, "p")
+    couleur=c(couleur,"green")
+  }
+  #Affichage de a
+  if (which >=3){
+    lines(out[,1],out[,nbclass+4], col="purple")
+    nom=c(nom, "a")
+    couleur=c(couleur,"purple")
+  }
+  legend("topright", legend=nom, col=couleur,lty=1, box.lty=0)
 }
 
-#Points d'intérêts
-pointsint <- function(dyn, which=NULL, seuil=1E-4){
+
+
+#Points d'intérêts uniquement 
+pointsint <- function(dyn, which=NULL){
   out <- attr(dyn,"dynamique")
   
   #Affiche uniquement si la dynamique est trouvée
