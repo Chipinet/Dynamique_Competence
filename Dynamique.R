@@ -177,14 +177,14 @@ points(x=c(2:5), y=beta_2, col="cyan", pch=16, type="b")
 legend("bottom", legend=c("beta_bar=20, n=10","beta_bar=10, n=10", "beta_bar=20, n=5", "beta_bar=10, n=5"), col=c("red", "orange", "blue", "cyan"), pch=16, cex=0.7)
 
 #Affichage des différents seuils
-# res <- split(res, res$seuil)
-# layout(matrix(1:6, ncol=3))
-# for (i in 1:6){
-#   out <- as.data.frame(res[i])
-#   colnames(out) <- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", "t0.seuil", paste0("t0_", parameters$k), "dilution", "omega", "seuil")
-#   plot(t0.seuil~dilution, data=out, log="x", type="n", ylab="t0")
-#   legend("bottomright", legend=out$seuil[1])
-#   lapply(split(out,out$omega),function(dtmp) lines(t0.seuil~dilution, data=dtmp, type="b",
-#                                                    pch=(21), cex=2, bg=grey(omega/11)))
-# }
+ res <- split(res, res$seuil)
+ layout(matrix(1:6, ncol=3))
+ for (i in 1:6){
+   out <- as.data.frame(res[i])
+   colnames(out) <- c("t.infl", "c.infl", "dc.infl", "t.max", "c.max", "t0.seuil", paste0("t0_", parameters$k), "dilution", "omega", "seuil")
+   plot(t0.seuil~dilution, data=out, log="x", type="n", ylab="t0")
+   legend("bottomright", legend=out$seuil[1])
+   lapply(split(out,out$omega),function(dtmp) lines(t0.seuil~dilution, data=dtmp, type="b",
+                                                    pch=(21), cex=2, bg=grey(omega/11)))
+ }
 
